@@ -87,6 +87,10 @@
             "
             v-for="t in tickerCollection"
             :key="t.title"
+            @click="selected(t)"
+            :class="{
+              'border-4': sel === t,
+            }"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
@@ -113,7 +117,7 @@
                 transition-all
                 focus:outline-none
               "
-              @click="removeTicker(t)"
+              @click.stop="removeTicker(t)"
             >
               <svg
                 class="h-5 w-5"
@@ -133,17 +137,23 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-      <section class="relative">
+      <section class="relative" v-if="sel">
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          VUE - USD
+          {{ sel.title }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
-          <div class="bg-purple-800 border w-10 h-24"></div>
-          <div class="bg-purple-800 border w-10 h-32"></div>
-          <div class="bg-purple-800 border w-10 h-48"></div>
-          <div class="bg-purple-800 border w-10 h-16"></div>
+          <div
+            class="bg-purple-800 border w-10"
+            v-for="(bar, idx) in normalizeGraph()"
+            :key="idx"
+            :style="{ height: `${bar}%` }"
+          ></div>
         </div>
-        <button type="button" class="absolute top-0 right-0">
+        <button
+          type="button"
+          class="absolute top-0 right-0"
+          @click="sel = null"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -177,28 +187,55 @@ export default {
 
   data() {
     return {
-      ticker: "default",
-      tickerCollection: [
-        { title: "DOGE", price: "-" },
-        { title: "QWE", price: "-" },
-        { title: "BTC", price: "-" },
-      ],
+      ticker: "",
+      tickerCollection: [],
+      sel: null,
+      graph: [],
     };
   },
 
   methods: {
     addTicker() {
-      const newTicker = {
+      const currentTicker = {
         title: this.ticker,
         price: "-",
       };
 
-      this.tickerCollection.push(newTicker);
+      this.tickerCollection.push(currentTicker);
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.title}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
+        );
+
+        const data = await f.json();
+
+        this.tickerCollection.find(
+          (t) => t.title === currentTicker.title,
+        ).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+        if (this.sel?.title === currentTicker.title) {
+          this.graph.push(data.USD);
+        }
+      }, 3000);
       this.ticker = "";
     },
 
     removeTicker(ticker) {
       this.tickerCollection = this.tickerCollection.filter((t) => t !== ticker);
+    },
+
+    selected(ticker) {
+      this.sel = ticker;
+      this.graph = [];
+    },
+
+    normalizeGraph() {
+      const minVal = Math.min(...this.graph);
+      const maxVal = Math.max(...this.graph);
+
+      return this.graph.map(
+        (price) => 5 + ((price - minVal) * 95) / (maxVal - minVal),
+      );
     },
   },
 };
