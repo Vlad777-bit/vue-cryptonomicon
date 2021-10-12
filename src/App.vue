@@ -222,6 +222,7 @@ export default {
 
     removeTicker(ticker) {
       this.tickerCollection = this.tickerCollection.filter((t) => t !== ticker);
+      this.sel = null;
     },
 
     selected(ticker) {
@@ -240,5 +241,3 @@ export default {
   },
 };
 </script>
-
-<style src="./app.css"></style>
