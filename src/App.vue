@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-    <!-- <div
+    <div
       class="
         fixed
         w-100
@@ -13,6 +13,7 @@
         items-center
         justify-center
       "
+      v-if="isLoading"
     >
       <svg
         class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
@@ -34,7 +35,7 @@
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         ></path>
       </svg>
-    </div> -->
+    </div>
 
     <div class="container">
       <section>
@@ -61,76 +62,42 @@
                 placeholder="Например DOGE"
                 v-model="ticker"
                 @keydown.enter="addTicker"
+                @input="getHint"
               />
             </div>
-            <div
-              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
-            >
-              <span
+            <template v-if="ticker.length && hints.length">
+              <div
                 class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
+                  flex
+                  bg-white
+                  shadow-md
+                  p-1
                   rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
+                  shadow-md
+                  flex-wrap
                 "
               >
-                BTC
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                DOGE
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                BCH
-              </span>
-              <span
-                class="
-                  inline-flex
-                  items-center
-                  px-2
-                  m-1
-                  rounded-md
-                  text-xs
-                  font-medium
-                  bg-gray-300
-                  text-gray-800
-                  cursor-pointer
-                "
-              >
-                CHD
-              </span>
-            </div>
+                <span
+                  class="
+                    inline-flex
+                    items-center
+                    px-2
+                    m-1
+                    rounded-md
+                    text-xs
+                    font-medium
+                    bg-gray-300
+                    text-gray-800
+                    cursor-pointer
+                  "
+                  v-for="(coin, idx) in hints"
+                  :key="idx"
+                  @click="addTicker"
+                >
+                  {{ coin }}
+                </span>
+              </div>
+            </template>
             <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
           </div>
         </div>
@@ -295,13 +262,16 @@ export default {
       tickerCollection: [],
       sel: null,
       graph: [],
+      isLoading: true,
+      coins: [],
+      hints: [],
     };
   },
 
   methods: {
     addTicker() {
       const currentTicker = {
-        title: this.ticker,
+        title: this.ticker.toUpperCase(),
         price: "-",
       };
 
@@ -342,6 +312,36 @@ export default {
         (price) => 5 + ((price - minVal) * 95) / (maxVal - minVal),
       );
     },
+
+    getHint() {
+      const results = this.coins
+        .map((coin) => coin.symbol)
+        .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .slice(0, 4);
+
+      this.hints = results;
+    },
+  },
+
+  async created() {
+    try {
+      const data = await fetch(
+        "https://min-api.cryptocompare.com/data/all/coinlist?summary=true",
+      );
+      const json = await data.json();
+      for (let coin in json.Data) {
+        const item = {
+          id: json.Data[coin].Id,
+          symbol: json.Data[coin].Symbol,
+          fullName: json.Data[coin].FullName,
+        };
+        this.coins.push(item);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      this.isLoading = false;
+    }
   },
 };
 </script>
