@@ -66,17 +66,7 @@
               />
             </div>
             <template v-if="ticker.length && hints.length">
-              <div
-                class="
-                  flex
-                  bg-white
-                  shadow-md
-                  p-1
-                  rounded-md
-                  shadow-md
-                  flex-wrap
-                "
-              >
+              <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
                 <span
                   class="
                     inline-flex
@@ -92,13 +82,18 @@
                   "
                   v-for="(coin, idx) in hints"
                   :key="idx"
-                  @click="addTicker"
+                  @click="ticker = coin"
                 >
                   {{ coin }}
                 </span>
               </div>
             </template>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div
+              class="text-sm text-red-600"
+              v-if="!isIncluding && tickerCollection.length"
+            >
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -265,6 +260,7 @@ export default {
       isLoading: true,
       coins: [],
       hints: [],
+      isIncluding: false,
     };
   },
 
@@ -276,6 +272,15 @@ export default {
       };
 
       this.tickerCollection.push(currentTicker);
+
+      this.tickerCollection = this.tickerCollection.filter(
+        (el, idx, arr) =>
+          (this.isIncluding =
+            idx === arr.findIndex((t) => t.title === el.title)),
+      );
+
+      console.log(this.tickerCollection);
+
       setInterval(async () => {
         const f = await fetch(
           `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.title}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
@@ -338,7 +343,7 @@ export default {
         this.coins.push(item);
       }
     } catch (e) {
-      console.log(e);
+      throw new Error("Ошибка при получении данных криптовалюты");
     } finally {
       this.isLoading = false;
     }
