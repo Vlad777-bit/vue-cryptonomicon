@@ -61,7 +61,7 @@
                 "
                 placeholder="Например DOGE"
                 v-model="ticker"
-                @keydown.enter="addTicker"
+                @keydown.enter="addTicker(ticker)"
                 @input="getHint"
               />
             </div>
@@ -82,7 +82,7 @@
                   "
                   v-for="(coin, idx) in hints"
                   :key="idx"
-                  @click="ticker = coin"
+                  @click="addTicker(coin)"
                 >
                   {{ coin }}
                 </span>
@@ -120,7 +120,7 @@
             focus:ring-offset-2
             focus:ring-gray-500
           "
-          @click="addTicker"
+          @click="addTicker(ticker)"
         >
           <!-- Heroicon name: solid/mail -->
           <svg
@@ -265,7 +265,9 @@ export default {
   },
 
   methods: {
-    addTicker() {
+    addTicker(el) {
+      this.ticker = el;
+
       const currentTicker = {
         title: this.ticker.toUpperCase(),
         price: "-",
