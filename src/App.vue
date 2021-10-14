@@ -265,6 +265,23 @@ export default {
   },
 
   methods: {
+    subscribeToUpdate(tickerTitle) {
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerTitle}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
+        );
+
+        const data = await f.json();
+
+        this.tickerCollection.find((t) => t.title === tickerTitle).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+        if (this.sel?.title === tickerTitle) {
+          this.graph.push(data.USD);
+        }
+      }, 3000);
+    },
+
     addTicker(el) {
       this.ticker = el;
 
@@ -274,6 +291,7 @@ export default {
       };
 
       this.tickerCollection.push(currentTicker);
+      this.ticker = "";
 
       this.tickerCollection = this.tickerCollection.filter(
         (el, idx, arr) =>
@@ -281,24 +299,12 @@ export default {
             idx === arr.findIndex((t) => t.title === el.title)),
       );
 
-      console.log(this.tickerCollection);
+      localStorage.setItem(
+        "cryptonomicon-list",
+        JSON.stringify(this.tickerCollection),
+      );
 
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.title}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
-        );
-
-        const data = await f.json();
-
-        this.tickerCollection.find(
-          (t) => t.title === currentTicker.title,
-        ).price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.sel?.title === currentTicker.title) {
-          this.graph.push(data.USD);
-        }
-      }, 3000);
-      this.ticker = "";
+      this.subscribeToUpdate(currentTicker.title);
     },
 
     removeTicker(ticker) {
@@ -324,6 +330,7 @@ export default {
       const results = this.coins
         .map((coin) => coin.symbol)
         .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .sort()
         .slice(0, 4);
 
       this.hints = results;
@@ -348,6 +355,16 @@ export default {
       throw new Error("Ошибка при получении данных криптовалюты");
     } finally {
       this.isLoading = false;
+    }
+
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+
+    if (tickersData) {
+      this.tickerCollection = JSON.parse(tickersData);
+
+      this.tickerCollection.forEach((ticker) =>
+        this.subscribeToUpdate(ticker.title),
+      );
     }
   },
 };
