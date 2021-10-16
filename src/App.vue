@@ -260,7 +260,7 @@ export default {
       isLoading: true,
       coins: [],
       hints: [],
-      isIncluding: false,
+      isIncluding: true,
     };
   },
 
