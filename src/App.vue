@@ -227,11 +227,11 @@
               border-purple-800 border-solid
               cursor-pointer
             "
-            v-for="t in filteredTickers()"
+            v-for="t in paginatedTickers"
             :key="t.title"
             @click="selected(t)"
             :class="{
-              'border-4': sel === t,
+              'border-4': selectedTicker === t,
             }"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
@@ -279,14 +279,14 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-      <section class="relative" v-if="sel">
+      <section class="relative" v-if="selectedTicker">
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          {{ sel.title }} - USD
+          {{ selectedTicker.title }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
             class="bg-purple-800 border w-10"
-            v-for="(bar, idx) in normalizeGraph()"
+            v-for="(bar, idx) in normalizedGraph"
             :key="idx"
             :style="{ height: `${bar}%` }"
           ></div>
@@ -294,7 +294,7 @@
         <button
           type="button"
           class="absolute top-0 right-0"
-          @click="sel = null"
+          @click="selectedTicker = null"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -330,102 +330,64 @@ export default {
   data() {
     return {
       ticker: "",
+      filter: "",
+
       tickerCollection: [],
-      sel: null,
+      selectedTicker: null,
+
       graph: [],
-      isLoading: true,
+
       coins: [],
       hints: [],
+
+      isLoading: true,
       isIncluding: true,
-      filter: "",
+
       page: 1,
-      hasNextPage: true,
     };
   },
 
-  methods: {
-    filteredTickers() {
-      const start = (this.page - 1) * 6;
-      const end = this.page * 6;
+  computed: {
+    startIndex() {
+      return (this.page - 1) * 6;
+    },
 
-      const filteredTickers = this.tickerCollection.filter((ticker) =>
+    endIndex() {
+      return this.page * 6;
+    },
+
+    filteredTickers() {
+      return this.tickerCollection.filter((ticker) =>
         ticker.title.includes(this.filter.toUpperCase()),
       );
-
-      this.hasNextPage = end < filteredTickers.length;
-
-      return filteredTickers.slice(start, end);
     },
 
-    subscribeToUpdate(tickerTitle) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerTitle}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
-        );
-
-        const data = await f.json();
-
-        this.tickerCollection.find((t) => t.title === tickerTitle).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.sel?.title === tickerTitle) {
-          this.graph.push(data.USD);
-        }
-      }, 3000);
+    paginatedTickers() {
+      return this.filteredTickers.slice(this.startIndex, this.endIndex);
     },
 
-    addTicker(el) {
-      this.ticker = el;
-
-      const currentTicker = {
-        title: this.ticker.toUpperCase(),
-        price: "-",
-      };
-
-      this.tickerCollection.push(currentTicker);
-      this.ticker = "";
-
-      this.tickerCollection = this.tickerCollection.filter(
-        (el, idx, arr) =>
-          (this.isIncluding =
-            idx === arr.findIndex((t) => t.title === el.title)),
-      );
-
-      localStorage.setItem(
-        "cryptonomicon-list",
-        JSON.stringify(this.tickerCollection),
-      );
-
-      this.subscribeToUpdate(currentTicker.title);
+    hasNextPage() {
+      return this.endIndex < this.filteredTickers.length;
     },
 
-    removeTicker(ticker) {
-      this.tickerCollection = this.tickerCollection.filter((t) => t !== ticker);
-      this.sel = null;
-    },
-
-    selected(ticker) {
-      this.sel = ticker;
-      this.graph = [];
-    },
-
-    normalizeGraph() {
+    normalizedGraph() {
       const minVal = Math.min(...this.graph);
       const maxVal = Math.max(...this.graph);
+
+      if (minVal == maxVal) {
+        return this.graph.map(() => 50);
+      }
 
       return this.graph.map(
         (price) => 5 + ((price - minVal) * 95) / (maxVal - minVal),
       );
     },
 
-    getHint() {
-      const results = this.coins
-        .map((coin) => coin.symbol)
-        .filter((el) => el.includes(this.ticker.toUpperCase()))
-        .sort()
-        .slice(0, 4);
-
-      this.hints = results;
+    pageStateOptions() {
+      return {
+        filter: this.filter,
+        page: this.page,
+      };
     },
   },
 
@@ -449,18 +411,27 @@ export default {
       this.isLoading = false;
     }
 
-    const tickersData = localStorage.getItem("cryptonomicon-list");
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries(),
     );
 
-    if (windowData.filter) {
-      this.filter = windowData.filter;
-    }
+    const VALID_KEYS = ["filter", "page"];
 
-    if (windowData.page) {
-      this.page = windowData.page;
-    }
+    VALID_KEYS.forEach((key) => {
+      if (windowData[key]) {
+        this[key] = windowData[key];
+      }
+    });
+
+    // if (windowData.filter) {
+    //   this.filter = windowData.filter;
+    // }
+
+    // if (windowData.page) {
+    //   this.page = windowData.page;
+    // }
+
+    const tickersData = localStorage.getItem("cryptonomicon-list");
 
     if (tickersData) {
       this.tickerCollection = JSON.parse(tickersData);
@@ -472,22 +443,95 @@ export default {
   },
 
   watch: {
-    filter() {
-      this.page = 1;
-
-      window.history.pushState(
-        null,
-        document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`,
+    tickerCollection() {
+      localStorage.setItem(
+        "cryptonomicon-list",
+        JSON.stringify(this.tickerCollection),
       );
+
+      this.page = this.endIndex;
     },
 
-    page() {
+    selectedTicker() {
+      this.graph = [];
+    },
+
+    paginatedTickers() {
+      if (this.paginatedTickers.length === 0 && this.page > 1) {
+        this.page -= 1;
+      }
+    },
+
+    filter() {
+      this.page = 1;
+    },
+
+    pageStateOptions(value) {
       window.history.pushState(
         null,
         document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`,
+        `${window.location.pathname}?filter=${value.filter}&page=${value.page}`,
       );
+    },
+  },
+
+  methods: {
+    subscribeToUpdate(tickerTitle) {
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerTitle}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
+        );
+
+        const data = await f.json();
+
+        this.tickerCollection.find((t) => t.title === tickerTitle).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+        if (this.selectedTicker?.title === tickerTitle) {
+          this.graph.push(data.USD);
+        }
+      }, 3000);
+    },
+
+    addTicker(el) {
+      this.ticker = el;
+
+      const currentTicker = {
+        title: this.ticker.toUpperCase(),
+        price: "-",
+      };
+
+      this.tickerCollection = [...this.tickerCollection, currentTicker];
+      this.ticker = "";
+
+      this.tickerCollection = this.tickerCollection.filter(
+        (el, idx, arr) =>
+          (this.isIncluding =
+            idx === arr.findIndex((t) => t.title === el.title)),
+      );
+
+      this.subscribeToUpdate(currentTicker.title);
+    },
+
+    removeTicker(ticker) {
+      this.tickerCollection = this.tickerCollection.filter((t) => t !== ticker);
+      if (ticker === this.selectedTicker) {
+        this.selectedTicker = null;
+      }
+    },
+
+    selected(ticker) {
+      this.selectedTicker = ticker;
+    },
+
+    getHint() {
+      const results = this.coins
+        .map((coin) => coin.symbol)
+        .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .sort()
+        .slice(0, 4);
+
+      this.hints = results;
     },
   },
 };
