@@ -65,7 +65,7 @@
                 @input="getHint"
               />
             </div>
-            <template v-if="ticker.length && hints.length">
+            <template v-if="ticker.length && coinList.length">
               <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
                 <span
                   class="
@@ -80,18 +80,15 @@
                     text-gray-800
                     cursor-pointer
                   "
-                  v-for="(coin, idx) in hints"
-                  :key="idx"
+                  v-for="coin in gettingHint"
+                  :key="coin.id"
                   @click="addTicker(coin)"
                 >
                   {{ coin }}
                 </span>
               </div>
             </template>
-            <div
-              class="text-sm text-red-600"
-              v-if="!isIncluding && tickerCollection.length"
-            >
+            <div class="text-sm text-red-600" v-if="isIncluding">
               Такой тикер уже добавлен
             </div>
           </div>
@@ -337,11 +334,10 @@ export default {
 
       graph: [],
 
-      coins: [],
-      hints: [],
+      coinList: [],
 
       isLoading: true,
-      isIncluding: true,
+      isIncluding: false,
 
       page: 1,
     };
@@ -389,27 +385,24 @@ export default {
         page: this.page,
       };
     },
+
+    gettingHint() {
+      return this.coinList
+        .map((coin) => coin.symbol)
+        .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .sort()
+        .slice(0, 4);
+    },
+
+    havingTicker() {
+      return this.tickerCollection
+        .map((t) => t.title)
+        .includes(this.ticker.toUpperCase());
+    },
   },
 
   async created() {
-    try {
-      const data = await fetch(
-        "https://min-api.cryptocompare.com/data/all/coinlist?summary=true",
-      );
-      const json = await data.json();
-      for (let coin in json.Data) {
-        const item = {
-          id: json.Data[coin].Id,
-          symbol: json.Data[coin].Symbol,
-          fullName: json.Data[coin].FullName,
-        };
-        this.coins.push(item);
-      }
-    } catch (e) {
-      throw new Error("Ошибка при получении данных криптовалюты");
-    } finally {
-      this.isLoading = false;
-    }
+    this.getCoinInfo();
 
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries(),
@@ -423,14 +416,6 @@ export default {
       }
     });
 
-    // if (windowData.filter) {
-    //   this.filter = windowData.filter;
-    // }
-
-    // if (windowData.page) {
-    //   this.page = windowData.page;
-    // }
-
     const tickersData = localStorage.getItem("cryptonomicon-list");
 
     if (tickersData) {
@@ -443,13 +428,23 @@ export default {
   },
 
   watch: {
+    ticker() {
+      this.isIncluding = false;
+
+      if (this.havingTicker) {
+        this.isIncluding = true;
+      }
+    },
+
     tickerCollection() {
       localStorage.setItem(
         "cryptonomicon-list",
         JSON.stringify(this.tickerCollection),
       );
 
-      this.page = this.endIndex;
+      if (!this.isIncluding) {
+        this.page = this.endIndex;
+      }
     },
 
     selectedTicker() {
@@ -501,13 +496,13 @@ export default {
         price: "-",
       };
 
-      this.tickerCollection = [...this.tickerCollection, currentTicker];
-      this.ticker = "";
+      if (!this.isIncluding) {
+        this.tickerCollection = [...this.tickerCollection, currentTicker];
+        this.ticker = "";
+      }
 
       this.tickerCollection = this.tickerCollection.filter(
-        (el, idx, arr) =>
-          (this.isIncluding =
-            idx === arr.findIndex((t) => t.title === el.title)),
+        (el, idx, arr) => idx === arr.findIndex((t) => t.title === el.title),
       );
 
       this.subscribeToUpdate(currentTicker.title);
@@ -524,14 +519,25 @@ export default {
       this.selectedTicker = ticker;
     },
 
-    getHint() {
-      const results = this.coins
-        .map((coin) => coin.symbol)
-        .filter((el) => el.includes(this.ticker.toUpperCase()))
-        .sort()
-        .slice(0, 4);
-
-      this.hints = results;
+    async getCoinInfo() {
+      try {
+        const data = await fetch(
+          "https://min-api.cryptocompare.com/data/all/coinlist?summary=true",
+        );
+        const json = await data.json();
+        for (let [key, value] of Object.entries(json.Data)) {
+          this.coinList.push({
+            id: value.Id,
+            symbol: value.Symbol,
+            fullName: value.FullName,
+            key: key,
+          });
+        }
+      } catch (e) {
+        throw new Error("Ошибка при получении данных криптовалюты");
+      } finally {
+        this.isLoading = false;
+      }
     },
   },
 };
