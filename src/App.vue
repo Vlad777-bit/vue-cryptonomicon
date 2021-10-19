@@ -236,7 +236,7 @@
                 {{ t.title }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -321,6 +321,8 @@
 </template>
 
 <script>
+import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+
 export default {
   name: "App",
 
@@ -422,9 +424,13 @@ export default {
       this.tickerCollection = JSON.parse(tickersData);
 
       this.tickerCollection.forEach((ticker) =>
-        this.subscribeToUpdate(ticker.title),
+        subscribeToTicker(ticker.title, (newPrice) =>
+          this.updateTicker(ticker.title, newPrice),
+        ),
       );
     }
+
+    setInterval(this.updateTickers, 5000);
   },
 
   watch: {
@@ -471,21 +477,18 @@ export default {
   },
 
   methods: {
-    subscribeToUpdate(tickerTitle) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerTitle}&tsyms=USD&api_key=64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760`,
-        );
+    updateTicker(tickerTitle, price) {
+      this.tickerCollection
+        .filter((t) => t.title === tickerTitle)
+        .forEach((t) => (t.price = price));
+    },
 
-        const data = await f.json();
+    formatPrice(price) {
+      if (price === "-") {
+        return price;
+      }
 
-        this.tickerCollection.find((t) => t.title === tickerTitle).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.selectedTicker?.title === tickerTitle) {
-          this.graph.push(data.USD);
-        }
-      }, 3000);
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
     addTicker(el) {
@@ -499,13 +502,12 @@ export default {
       if (!this.isIncluding) {
         this.tickerCollection = [...this.tickerCollection, currentTicker];
         this.ticker = "";
+        this.filter = "";
       }
 
-      this.tickerCollection = this.tickerCollection.filter(
-        (el, idx, arr) => idx === arr.findIndex((t) => t.title === el.title),
+      subscribeToTicker(currentTicker.title, (newPrice) =>
+        this.updateTicker(currentTicker.title, newPrice),
       );
-
-      this.subscribeToUpdate(currentTicker.title);
     },
 
     removeTicker(ticker) {
@@ -513,6 +515,8 @@ export default {
       if (ticker === this.selectedTicker) {
         this.selectedTicker = null;
       }
+
+      unsubscribeFromTicker(ticker.title);
     },
 
     selected(ticker) {
