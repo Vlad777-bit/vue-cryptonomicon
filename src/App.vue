@@ -62,7 +62,6 @@
                 placeholder="Например DOGE"
                 v-model="ticker"
                 @keydown.enter="addTicker(ticker)"
-                @input="getHint"
               />
             </div>
             <template v-if="ticker.length && coinList.length">
@@ -80,9 +79,9 @@
                     text-gray-800
                     cursor-pointer
                   "
-                  v-for="coin in gettingHint"
-                  :key="coin.id"
-                  @click="addTicker(coin)"
+                  v-for="(coin, idx) in gettingHint"
+                  :key="idx"
+                  @click="ticker = coin"
                 >
                   {{ coin }}
                 </span>
@@ -322,6 +321,7 @@
 
 <script>
 import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import { getCoinData } from "./min-api";
 
 export default {
   name: "App",
@@ -390,7 +390,7 @@ export default {
 
     gettingHint() {
       return this.coinList
-        .map((coin) => coin.symbol)
+        .map((key) => key.symbol)
         .filter((el) => el.includes(this.ticker.toUpperCase()))
         .sort()
         .slice(0, 4);
@@ -404,7 +404,7 @@ export default {
   },
 
   async created() {
-    this.getCoinInfo();
+    this.setCoinInfoToArray();
 
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries(),
@@ -496,9 +496,7 @@ export default {
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
-    addTicker(el) {
-      this.ticker = el;
-
+    addTicker() {
       const currentTicker = {
         title: this.ticker.toUpperCase(),
         price: "-",
@@ -528,22 +526,11 @@ export default {
       this.selectedTicker = ticker;
     },
 
-    async getCoinInfo() {
+    async setCoinInfoToArray() {
       try {
-        const data = await fetch(
-          "https://min-api.cryptocompare.com/data/all/coinlist?summary=true",
-        );
-        const json = await data.json();
-        for (let [key, value] of Object.entries(json.Data)) {
-          this.coinList.push({
-            id: value.Id,
-            symbol: value.Symbol,
-            fullName: value.FullName,
-            key: key,
-          });
-        }
+        this.coinList = await getCoinData();
       } catch (e) {
-        throw new Error("Ошибка при получении данных криптовалюты");
+        throw new Error(`Ошибка при записи данных криптовалюты: ${e.message}`);
       } finally {
         this.isLoading = false;
       }
