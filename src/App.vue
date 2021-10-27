@@ -228,6 +228,7 @@
             @click="selected(t)"
             :class="{
               'border-4': selectedTicker === t,
+              'bg-red-100': checkTicker(t),
             }"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
@@ -320,7 +321,11 @@
 </template>
 
 <script>
-import { subscribeToTicker, unsubscribeFromTicker } from "./api";
+import {
+  subscribeToTicker,
+  unsubscribeFromTicker,
+  notValidTickers,
+} from "./api";
 import { getCoinData } from "./min-api";
 
 export default {
@@ -400,6 +405,10 @@ export default {
       return this.tickerCollection
         .map((t) => t.title)
         .includes(this.ticker.toUpperCase());
+    },
+
+    checkingTickers() {
+      return notValidTickers;
     },
   },
 
@@ -534,6 +543,10 @@ export default {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    checkTicker(t) {
+      return this.checkingTickers.includes(t.title);
     },
   },
 };
