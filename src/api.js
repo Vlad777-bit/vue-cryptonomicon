@@ -1,5 +1,5 @@
 const API_KEY =
-  "64d0c3a75f4a30c616014ba6b4b01da6aa0a66d7765cf974a8a8aed7126c1760";
+  "ac48f6c4fde4b67bd380ad57c04df906e81a7ceba132d48a194a3a7ce45baa7e";
 const AGGREGATE_INDEX = "5";
 const INVALID_TYPE = "500";
 
@@ -21,7 +21,7 @@ socket.addEventListener("message", (e) => {
     const invalidTicker = ticker.split("~")[2];
     notValidTickers.push(invalidTicker);
   }
-  
+
   if (type !== AGGREGATE_INDEX || newPrice === undefined) {
     return;
   }
