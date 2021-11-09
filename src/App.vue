@@ -60,6 +60,7 @@
                   rounded-md
                 "
                 placeholder="Например DOGE"
+                v-focus
                 v-model="ticker"
                 @keydown.enter="addTicker(ticker)"
               />
