@@ -281,11 +281,15 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.title }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          class="flex items-end border-gray-600 border-b border-l h-64"
+          ref="graph"
+        >
           <div
             class="bg-purple-800 border w-10"
             v-for="(bar, idx) in normalizedGraph"
             :key="idx"
+            ref="graphElement"
             :style="{ height: `${bar}%` }"
           ></div>
         </div>
@@ -341,6 +345,8 @@ export default {
       selectedTicker: null,
 
       graph: [],
+      maxGraphElements: 1,
+      widthGraphElement: 1,
 
       coinList: [],
 
@@ -413,7 +419,7 @@ export default {
     },
   },
 
-  async created() {
+  created() {
     this.setCoinInfoToArray();
 
     const windowData = Object.fromEntries(
@@ -441,6 +447,14 @@ export default {
     }
 
     setInterval(this.updateTickers, 5000);
+  },
+
+  mounted() {
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
   watch: {
@@ -493,6 +507,14 @@ export default {
         .forEach((t) => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
+
+            if (this.graph.length > this.maxGraphElements) {
+              this.graph = this.graph.splice(1, this.maxGraphElements);
+            }
+
+            this.$nextTick()
+              .then(this.setWidthGraphEl)
+              .then(this.calculateMaxGraphElements);
           }
           t.price = price;
         });
@@ -512,7 +534,7 @@ export default {
         price: "-",
       };
 
-      if (!this.isIncluding) {
+      if (!this.isIncluding && this.ticker.length) {
         this.tickerCollection = [...this.tickerCollection, currentTicker];
         this.ticker = "";
         this.filter = "";
@@ -548,6 +570,25 @@ export default {
 
     checkTicker(t) {
       return this.checkingTickers.includes(t.title);
+    },
+
+    calculateMaxGraphElements() {
+      if (!this.$refs.graph) {
+        return;
+      }
+
+      this.maxGraphElements =
+        this.$refs.graph.clientWidth / this.widthGraphElement;
+    },
+
+    setWidthGraphEl() {
+      if (!this.$refs.graphElement) {
+        return;
+      }
+
+      this.widthGraphElement = parseInt(
+        getComputedStyle(this.$refs.graphElement).width,
+      );
     },
   },
 };
