@@ -38,7 +38,12 @@
     </div>
 
     <div class="container">
-      <add-ticker @add-ticker="addTicker" :disabled="tooManyTickersAdded" />
+      <add-ticker
+        @add-ticker="addTicker"
+        @load="isLoadedCoins"
+        :disabled="tooManyTickersAdded"
+        :tickers="tickerCollection"
+      />
 
       <template v-if="tickerCollection.length > 0">
         <hr class="w-full border-t border-gray-600 my-4" />
@@ -235,7 +240,6 @@ import {
   unsubscribeFromTicker,
   notValidTickers,
 } from "@/api";
-import { getCoinData } from "@/min-api";
 
 import AddTicker from "@/components/AddTicker.vue";
 
@@ -258,10 +262,7 @@ export default {
       maxGraphElements: 1,
       widthGraphElement: 1,
 
-      coinList: [],
-
       isLoading: true,
-      isIncluding: false,
 
       page: 1,
     };
@@ -310,20 +311,6 @@ export default {
       };
     },
 
-    // gettingHint() {
-    //   return this.coinList
-    //     .map((key) => key.symbol)
-    //     .filter((el) => el.includes(this.ticker.toUpperCase()))
-    //     .sort()
-    //     .slice(0, 4);
-    // },
-
-    // havingTicker() {
-    //   return this.tickerCollection
-    //     .map((t) => t.title)
-    //     .includes(this.ticker.toUpperCase());
-    // },
-
     checkingTickers() {
       return notValidTickers;
     },
@@ -334,8 +321,6 @@ export default {
   },
 
   created() {
-    this.setCoinInfoToArray();
-
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries(),
     );
@@ -372,14 +357,6 @@ export default {
   },
 
   watch: {
-    ticker() {
-      this.isIncluding = false;
-
-      if (this.havingTicker) {
-        this.isIncluding = true;
-      }
-    },
-
     tickerCollection() {
       localStorage.setItem(
         "cryptonomicon-list",
@@ -426,12 +403,16 @@ export default {
               this.graph = this.graph.splice(1, this.maxGraphElements);
             }
 
-            this.$nextTick()
-              .then(this.setWidthGraphEl)
-              .then(this.calculateMaxGraphElements);
+            this.updateGraph();
           }
           t.price = price;
         });
+    },
+
+    updateGraph() {
+      this.$nextTick()
+        .then(this.setWidthGraphEl)
+        .then(this.calculateMaxGraphElements);
     },
 
     formatPrice(price) {
@@ -448,10 +429,8 @@ export default {
         price: "-",
       };
 
-      if (!this.isIncluding && ticker.length) {
-        this.tickerCollection = [...this.tickerCollection, currentTicker];
-        this.filter = "";
-      }
+      this.tickerCollection = [...this.tickerCollection, currentTicker];
+      this.filter = "";
 
       subscribeToTicker(currentTicker.title, (newPrice) =>
         this.updateTicker(currentTicker.title, newPrice),
@@ -469,16 +448,6 @@ export default {
 
     selected(ticker) {
       this.selectedTicker = ticker;
-    },
-
-    async setCoinInfoToArray() {
-      try {
-        this.coinList = await getCoinData();
-      } catch (e) {
-        throw new Error(`Ошибка при записи данных криптовалюты: ${e.message}`);
-      } finally {
-        this.isLoading = false;
-      }
     },
 
     checkTicker(t) {
@@ -502,6 +471,14 @@ export default {
       this.widthGraphElement = parseInt(
         getComputedStyle(this.$refs.graphElement).width,
       );
+    },
+
+    isLoadedCoins(data) {
+      if (typeof data !== "boolean") {
+        return;
+      }
+
+      this.isLoading = data;
     },
   },
 };

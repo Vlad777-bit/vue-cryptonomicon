@@ -26,7 +26,7 @@
             @keydown.enter="addTicker(ticker)"
           />
         </div>
-        <!-- <template v-if="ticker.length && coinList.length">
+        <template v-if="ticker.length && coinList.length">
           <div class="flex bg-white shadow-md p-1 rounded-md flex-wrap">
             <span
               class="
@@ -51,7 +51,7 @@
         </template>
         <div class="text-sm text-red-600" v-if="isIncluding">
           Такой тикер уже добавлен
-        </div> -->
+        </div>
       </div>
     </div>
     <add-button
@@ -63,6 +63,8 @@
 </template>
 
 <script>
+import { getCoinData } from "@/min-api";
+
 import AddButton from "@/components/UI/AddButton.vue";
 export default {
   components: {
@@ -72,6 +74,11 @@ export default {
   data() {
     return {
       ticker: "",
+
+      coinList: [],
+
+      isLoading: true,
+      isIncluding: false,
     };
   },
 
@@ -81,10 +88,29 @@ export default {
       required: false,
       default: false,
     },
+
+    tickers: {
+      type: Array,
+      required: false,
+      default() {
+        return [];
+      },
+    },
   },
 
   emits: {
     "add-ticker": (val) => typeof val === "string" && val.length > 0,
+    load: (val) => typeof val === "boolean" && val === false,
+  },
+
+  watch: {
+    ticker() {
+      this.isIncluding = false;
+
+      if (this.havingTicker) {
+        this.isIncluding = true;
+      }
+    },
   },
 
   methods: {
@@ -93,11 +119,42 @@ export default {
         return;
       }
 
-      if (!this.disabled) {
+      if (!this.disabled && !this.isIncluding) {
         this.$emit("add-ticker", this.ticker);
         this.ticker = "";
       }
     },
+
+    async setCoinInfoToArray() {
+      try {
+        this.coinList = await getCoinData();
+      } catch (e) {
+        throw new Error(`Ошибка при записи данных криптовалюты: ${e.message}`);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+  },
+
+  computed: {
+    gettingHint() {
+      return this.coinList
+        .map((key) => key.symbol)
+        .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .sort()
+        .slice(0, 4);
+    },
+
+    havingTicker() {
+      return this.tickers
+        .map((t) => t.title)
+        .includes(this.ticker.toUpperCase());
+    },
+  },
+
+  async created() {
+    await this.setCoinInfoToArray();
+    this.$emit("load", this.isLoading);
   },
 };
 </script>
