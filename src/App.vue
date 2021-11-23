@@ -188,7 +188,7 @@
       </template>
       <show-graph
         :selectedTicker="selectedTicker"
-        @removeGraph="selectedTicker = null"
+        @remove-graph="selectedTicker = null"
       />
     </div>
   </div>
@@ -220,10 +220,6 @@ export default {
       selectedTicker: null,
       maxCountOfTickers: 20,
 
-      // graph: [],
-      // maxGraphElements: 1,
-      // widthGraphElement: 1,
-
       isLoading: true,
 
       page: 1,
@@ -251,19 +247,6 @@ export default {
 
     hasNextPage() {
       return this.endIndex < this.filteredTickers.length;
-    },
-
-    normalizedGraph() {
-      const minVal = Math.min(...this.graph);
-      const maxVal = Math.max(...this.graph);
-
-      if (minVal == maxVal) {
-        return this.graph.map(() => 50);
-      }
-
-      return this.graph.map(
-        (price) => 5 + ((price - minVal) * 95) / (maxVal - minVal),
-      );
     },
 
     pageStateOptions() {
@@ -310,14 +293,6 @@ export default {
     setInterval(this.updateTickers, 5000);
   },
 
-  mounted() {
-    window.addEventListener("resize", this.calculateMaxGraphElements);
-  },
-
-  beforeUnmount() {
-    window.removeEventListener("resize", this.calculateMaxGraphElements);
-  },
-
   watch: {
     tickerCollection() {
       localStorage.setItem(
@@ -328,10 +303,6 @@ export default {
       if (!this.isIncluding) {
         this.page = this.endIndex;
       }
-    },
-
-    selectedTicker() {
-      this.graph = [];
     },
 
     paginatedTickers() {
@@ -358,23 +329,8 @@ export default {
       this.tickerCollection
         .filter((t) => t.title === tickerTitle)
         .forEach((t) => {
-          if (t === this.selectedTicker) {
-            this.graph.push(price);
-
-            if (this.graph.length > this.maxGraphElements) {
-              this.graph = this.graph.splice(1, this.maxGraphElements);
-            }
-
-            this.updateGraph();
-          }
           t.price = price;
         });
-    },
-
-    updateGraph() {
-      this.$nextTick()
-        .then(this.setWidthGraphEl)
-        .then(this.calculateMaxGraphElements);
     },
 
     formatPrice(price) {
@@ -414,25 +370,6 @@ export default {
 
     checkTicker(t) {
       return this.checkingTickers.includes(t.title);
-    },
-
-    calculateMaxGraphElements() {
-      if (!this.$refs.graph) {
-        return;
-      }
-
-      this.maxGraphElements =
-        this.$refs.graph.clientWidth / this.widthGraphElement;
-    },
-
-    setWidthGraphEl() {
-      if (!this.$refs.graphElement) {
-        return;
-      }
-
-      this.widthGraphElement = parseInt(
-        getComputedStyle(this.$refs.graphElement).width,
-      );
     },
 
     isLoadedCoins(data) {
