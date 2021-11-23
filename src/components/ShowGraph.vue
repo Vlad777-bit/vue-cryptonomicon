@@ -31,14 +31,11 @@ export default {
     selectedTicker: {
       type: Object,
       required: false,
-      default() {
-        return null;
-      },
     },
   },
 
   emits: {
-    removeGraph: null,
+    "remove-graph": null,
   },
 
   data() {
@@ -49,9 +46,71 @@ export default {
     };
   },
 
+  mounted() {
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  watch: {
+    selectedTicker() {
+      this.graph = [];
+    },
+  },
+
+  computed: {
+    normalizedGraph() {
+      const minVal = Math.min(...this.graph);
+      const maxVal = Math.max(...this.graph);
+
+      if (minVal == maxVal) {
+        return this.graph.map(() => 50);
+      }
+
+      return this.graph.map(
+        (price) => 5 + ((price - minVal) * 95) / (maxVal - minVal),
+      );
+    },
+  },
+
   methods: {
     removeGraph() {
-      this.$emit("removeGraph");
+      this.$emit("remove-graph");
+    },
+
+    updateGraph() {
+      if (this.selectedTicker) {
+        this.graph.push(this.selectedTicker.price);
+
+        if (this.graph.length > this.maxGraphElements) {
+          this.graph = this.graph.splice(1, this.maxGraphElements);
+        }
+
+        this.$nextTick()
+          .then(this.setWidthGraphEl)
+          .then(this.calculateMaxGraphElements);
+      }
+    },
+
+    calculateMaxGraphElements() {
+      if (!this.$refs.graph) {
+        return;
+      }
+
+      this.maxGraphElements =
+        this.$refs.graph.clientWidth / this.widthGraphElement;
+    },
+
+    setWidthGraphEl() {
+      if (!this.$refs.graphElement) {
+        return;
+      }
+
+      this.widthGraphElement = parseInt(
+        getComputedStyle(this.$refs.graphElement).width,
+      );
     },
   },
 };
