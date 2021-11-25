@@ -189,6 +189,7 @@
       <show-graph
         :selectedTicker="selectedTicker"
         @remove-graph="selectedTicker = null"
+        ref="showGraph"
       />
     </div>
   </div>
@@ -331,6 +332,8 @@ export default {
         .forEach((t) => {
           t.price = price;
         });
+
+      this.$refs.showGraph.updateGraph();
     },
 
     formatPrice(price) {
